@@ -7,3 +7,7 @@ body {
   margin: 3px;
   width: 100px;
 }
+
+.hold {
+  border: 2px solid green;
+}
