@@ -1,10 +1,27 @@
 (function () {
 
 	let betAmount = 0
-	let accountBalance = 0
+	let account = new Account();
 	let firstClick = true
 	let deck = []
-	let hand = []
+	let hand = null
+	let hands = [
+		'Jacks or Better',
+		'Two Pair',
+		'Three of a kind',
+		'Straight',
+		'Flush',
+		'Full House',
+		'Four of a Kind',
+		'Straight Flush',
+		'Royal Flush'
+	]
+
+	let multiplier = [
+		[1, 2, 3, 5, 7, 10, 40, 50, 100],
+		[2, 4, 6, 10, 14, 20, 80, 100, 200],
+		[5, 10, 15, 25, 35, 50, 200, 250, 500]
+	]
 
 	let balance = document.getElementById('balance')
 	let bet = document.getElementById('bet')
@@ -27,123 +44,19 @@
 	deal.classList.add('disabled')
 	deal.addEventListener('click', dealCards);
 	bet.addEventListener('change', handleBetChange)
+	replay.addEventListener('click', playAgain)
 	saveLinks.forEach(function (link) {
 		link.addEventListener('click', keepCard)
 	});
-	updateBalance(1000)
 
-
-
-
-	function hasFourOfAKind(groups) {
-		return groups.some(function (group) {
-			return group.length === 4;
-		});
+	if (account.balance < 1) {
+		account.load(1000);
 	}
 
-	function isFullHouse(groups) {
-		return hasThreeOfAKind(groups) && hasPair(groups);
-	}
+	updateBalance(0);
 
-	function isFlush(hand) {
-		return isSingleSuite(hand, 'H') ||
-			isSingleSuite(hand, 'D') ||
-			isSingleSuite(hand, 'C') ||
-			isSingleSuite(hand, 'S');
-	}
-
-	function isStraight(values) {
-
-		var uniqueVals = uniqueValues(values);
-
-		if (uniqueVals.length < 5) {
-			return false;
-		}
-
-		if (values[4] - values[0] === 4) {
-			return true;
-		}
-
-		if (values.join(',') === '2,3,4,5,14') {
-			return true;
-		}
-
-		return false;
-	}
-
-	function hasThreeOfAKind(groups) {
-		return groups.some(function (group) {
-			return group.length === 3;
-		});
-	}
-
-	function hasTwoPairs(groups) {
-		var pairs = 0;
-
-		groups.forEach(function (group) {
-			pairs += group.length === 2 ? 1 : 0;
-		});
-
-		return pairs > 1;
-	}
-
-	function isJacksOrBetter(groups) {
-
-		var isTrue = false;
-
-		groups.forEach(function (group) {
-			if (group[1] >= 11) isTrue = true;
-		});
-
-		return isTrue;
-	}
-
-	function hasPair(groups) {
-		return groups.some(function (group) {
-			return group.length === 2;
-		});
-	}
-
-	function groupValues(values) {
-
-		var groups = [];
-		var uniqueVals = uniqueValues(values);
-
-		uniqueVals.forEach(function (uniqueValue) {
-			var group = values.filter(function (value) {
-				return value === uniqueValue;
-			});
-
-			groups.push(group);
-		});
-
-		return groups;
-	}
-
-	function uniqueValues(values) {
-		var unique = [];
-		var last = 0;
-
-		values.forEach(function (value) {
-			if (value !== last) {
-				unique.push(value);
-				last = value;
-			}
-		});
-
-		return unique;
-	}
-
-	function getValues(hand) {
-		return hand.map(getCardValue).sort(function (a, b) {
-			return parseInt(a) - parseInt(b);
-		});
-	}
-
-	function isSingleSuite(hand, suit) {
-		return hand.every(function (card) {
-			return card.endsWith(suit);
-		});
+	function showResult(message) {
+		handResult.innerHTML = message;
 	}
 
 
@@ -158,71 +71,110 @@
 
 	}
 
+
 	function updateBalance(amount) {
-		accountBalance += amount
-		balance.innerHTML = accountBalance
+		account.update(amount)
+		balance.innerHTML = account.balance
 	}
 
 	function handleBetChange() {
 		betAmount = event.target.valueAsNumber;
 
-		if (betAmount > 0) {
+		if (betAmount > 0 && betAmount <= account.balance) {
 			deal.classList.remove('disabled')
 		}
 		else {
 			deal.classList.add('disabled')
 		}
 	}
+	function playAgain() {
+
+		if (bet.value > account.balance) {
+			bet.value = account.balance
+		}
+		//get rid of win/lose banner text
+		showResult('');
+
+		//hids deal again button
+		replay.classList.add('hidden');
+
+		//resets player's hand shows back of cards'
+		cardImages.forEach(function (img) {
+			img.src = 'img/back.png';
+		});
+
+		bet.value = 0;
+		firstClick = true;
+
+		console.log(hand);
+
+	}
 
 	function dealCard(card, position) {
-		hand[position] = card;
+		hand.deal(card, position);
 		cardImages[position].src = 'img/' + card + '.png'
 	}
 
+
 	function dealCards() {
-		if (deal.classList.contains('disabled')) {
+    if (deal.classList.contains('disabled')) {
 			return;
-		}
-		if (firstClick) {
+    }
+    if (firstClick) {
 			firstClick = false;
-			updateBalance(-betAmount)
+			updateBalance(-betAmount);
 
 			deck = getDeck();
-			hand = []
+			hand = new PokerHand();
 
 			for (var i = 0; i < 5; i++) {
 				let card = deck.shift();
-				dealCard(card, i)
-				debugger
+				dealCard(card, i);
 			}
-		}
-		else {
+			console.log(hand);
+    }
+    else {
 			for (var i = 0; i < 5; i++) {
 				if (!cardImages[i].classList.contains('hold')) {
 					let card = deck.shift();
 					dealCard(card, i);
 				}
 				else {
-					cardImages[i].classList.remove('hold')
+					cardImages[i].classList.remove('hold');
 
 				}
 			}
+			deal.classList.add('disabled');
+
+			let handValue = hand.evaluate();
+
+			if (handValue > -1) {
+				let tier = 0;
+
+
+				if (betAmount >= 500) {
+					tier = 2;
+				}
+				else if (betAmount >= 250) {
+					tier = 1;
+				}
+				let winnings = multiplier[tier][handValue] * betAmount;
+
+				showResult(hands[handValue] + '<br> you have won' + winnings + 'dollars')
+				updateBalance(winnings)
+			}
+			else {
+				showResult('Try Again')
+			}
 		}
+
+
+		replay.classList.remove('hidden');
+
+
 	}
 
 
-
-
-
-	function evaluateHand(hand) {
-		let values = getValues(hand)
-		let groups = groupValues(values);
-
-		if (isRoyalFluch(hand, values)) {
-			showResults('royal Flush');
-			updateBalance(betAmmount * 800);
-		}
-	}
 
 	function getCardValue(card) {
 
